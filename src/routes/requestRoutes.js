@@ -1,8 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const { createRequest, getRequests, updateStatus } = require('../controllers/requestController');
+
 const { protect, authorize } = require('../middlewares/authMiddleware');
 const { requestValidator } = require('../middlewares/validators');
+const upload = require('../config/cloudinary');
 
 /**
  * @swagger
@@ -34,4 +36,5 @@ router.get('/', protect, getRequests);
  */
 router.put('/:id/status', protect, authorize('collector', 'admin'), updateStatus);
 
+router.post('/', protect, authorize('citizen'), upload.single('image'), requestValidator, createRequest);
 module.exports = router;
