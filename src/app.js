@@ -13,7 +13,8 @@ const authRoutes = require('./routes/authRoutes');
 const requestRoutes = require('./routes/requestRoutes');
 const analyticsRoutes = require('./routes/analyticsRoutes');
 const errorHandler = require('./middlewares/errorMiddleware');
-
+const reportRoutes = require('./routes/reportRoutes');
+const ratingRoutes = require('./routes/ratingRoutes');
 const app = express();
 
 // 1. GLOBAL SECURITY MIDDLEWARES
@@ -43,6 +44,8 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.use('/api/auth', authRoutes);
 app.use('/api/requests', requestRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/reports', reportRoutes);
+app.use('/api/ratings', ratingRoutes);
 
 // 5. ERROR HANDLING
 app.use(errorHandler);
