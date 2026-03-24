@@ -2,18 +2,27 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const swaggerUi = require('swagger-ui-express');
+const swaggerSpec = require('./config/swagger');
+
+// Route imports
+const authRoutes = require('./routes/authRoutes');
 
 const app = express();
 
-// Global Middlewares
-app.use(helmet()); // Security headers
-app.use(cors()); // Enable CORS
-app.use(morgan('dev')); // Logging
-app.use(express.json()); // Body parser
+app.use(helmet());
+app.use(cors());
+app.use(morgan('dev'));
+app.use(express.json());
 
-// Root Route for testing
+// Swagger Setup
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
+// Routes
+app.use('/api/auth', authRoutes);
+
 app.get('/', (req, res) => {
-  res.json({ message: "Welcome to EcoTrack API" });
+  res.json({ message: "Welcome to EcoTrack API. Go to /api-docs for documentation." });
 });
 
 module.exports = app;
