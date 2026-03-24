@@ -2,12 +2,20 @@ const express = require('express');
 const router = express.Router();
 const { register, login, getMe } = require('../controllers/authController');
 const { protect } = require('../middlewares/authMiddleware');
+const { registerValidator, loginValidator } = require('../middlewares/validators');
+
+/**
+ * @swagger
+ * tags:
+ *   name: Auth
+ *   description: User registration and authentication
+ */
 
 /**
  * @swagger
  * /auth/register:
  *   post:
- *     summary: Register a new user
+ *     summary: Register a new user (Citizen, Collector, or Admin)
  *     tags: [Auth]
  *     requestBody:
  *       required: true
@@ -15,23 +23,21 @@ const { protect } = require('../middlewares/authMiddleware');
  *         application/json:
  *           schema:
  *             type: object
+ *             required: [name, email, password, phone]
  *             properties:
  *               name: { type: string }
  *               email: { type: string }
- *               password: { type: string }
+ *               password: { type: string, minLength: 6 }
  *               phone: { type: string }
- *               role: { type: string, enum: [citizen, collector, admin] }
- *     responses:
- *       201:
- *         description: User registered successfully
+ *               role: { type: string, enum: [citizen, collector, admin], default: citizen }
  */
-router.post('/register', register);
+router.post('/register', registerValidator, register);
 
 /**
  * @swagger
  * /auth/login:
  *   post:
- *     summary: Login user
+ *     summary: Login user and return JWT token
  *     tags: [Auth]
  *     requestBody:
  *       required: true
@@ -39,26 +45,24 @@ router.post('/register', register);
  *         application/json:
  *           schema:
  *             type: object
+ *             required: [email, password]
  *             properties:
  *               email: { type: string }
  *               password: { type: string }
- *     responses:
- *       200:
- *         description: Login successful
  */
-router.post('/login', login);
+router.post('/login', loginValidator, login);
 
 /**
  * @swagger
  * /auth/me:
  *   get:
- *     summary: Get current user profile
+ *     summary: Get current logged in user profile
  *     tags: [Auth]
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: User data retrieved
+ *         description: Returns user data
  */
 router.get('/me', protect, getMe);
 
