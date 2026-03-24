@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const { register, login, getMe } = require('../controllers/authController');
-const { protect } = require('../middlewares/authMiddleware');
+const { register, login, getMe,  getUsers, 
+  updateProfile  } = require('../controllers/authController');
+const { protect, authorize } = require('../middlewares/authMiddleware');
 const { registerValidator, loginValidator } = require('../middlewares/validators');
 
 /**
@@ -65,5 +66,16 @@ router.post('/login', loginValidator, login);
  *         description: Returns user data
  */
 router.get('/me', protect, getMe);
+
+/**
+ * @swagger
+ * /auth/users:
+ *   get:
+ *     summary: Get all registered users (Admin only)
+ *     tags: [Auth]
+ *     security: [{ bearerAuth: [] }]
+ */
+router.get('/users', protect, authorize('admin'), getUsers);
+router.put('/profile', protect, updateProfile);
 
 module.exports = router;

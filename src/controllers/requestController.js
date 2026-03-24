@@ -118,3 +118,27 @@ exports.updateStatus = async (req, res) => {
       res.status(500).json({ success: false, message: error.message });
     }
 };
+
+// @desc    Manually assign/re-assign collector (Admin only)
+exports.assignCollector = async (req, res) => {
+  try {
+    const { collectorId } = req.body;
+    const request = await PickupRequest.findByIdAndUpdate(
+      req.params.id,
+      { collector: collectorId, status: 'assigned' },
+      { new: true }
+    );
+    res.json({ success: true, data: request });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+exports.getRequest = async (req, res) => {
+  try {
+    const request = await PickupRequest.findById(req.params.id).populate('citizen collector', 'name phone email');
+    if (!request) return res.status(404).json({ message: "Request not found" });
+    res.json({ success: true, data: request });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
