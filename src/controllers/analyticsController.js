@@ -74,3 +74,20 @@ exports.getAdminOverview = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+exports.getCollectorPerformance = async (req, res) => {
+  try {
+    const stats = await Rating.aggregate([
+      { $match: { collector: new mongoose.Types.ObjectId(req.params.id) } },
+      {
+        $group: {
+          _id: "$collector",
+          averageRating: { $avg: "$rating" },
+          totalReviews: { $sum: 1 }
+        }
+      }
+    ]);
+    res.json({ success: true, data: stats[0] || { averageRating: 0, totalReviews: 0 } });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
