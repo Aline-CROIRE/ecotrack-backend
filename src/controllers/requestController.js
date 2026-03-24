@@ -1,12 +1,9 @@
 const PickupRequest = require('../models/PickupRequest');
-const User = require('../models/User');
 
-// @desc    Create new pickup request
-// @route   POST /api/requests
+// @desc    Create Request
 exports.createRequest = async (req, res) => {
   try {
     const { wasteType, priority, address, scheduledDate } = req.body;
-    
     const request = await PickupRequest.create({
       citizen: req.user.id,
       wasteType,
@@ -14,67 +11,71 @@ exports.createRequest = async (req, res) => {
       location: { address },
       scheduledDate,
     });
-
-    res.status(201).json(request);
+    res.status(201).json({ success: true, data: request });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-// @desc    Get all requests (Admin: All, Citizen: Own, Collector: Assigned)
-// @route   GET /api/requests
+// @desc    Get All Requests with Advanced Querying (Pagination/Sorting/Filtering)
 exports.getRequests = async (req, res) => {
   try {
-    let query;
-    if (req.user.role === 'admin') {
-      query = PickupRequest.find().populate('citizen collector', 'name email phone');
-    } else if (req.user.role === 'collector') {
-      query = PickupRequest.find({ collector: req.user.id }).populate('citizen', 'name phone');
+    // A. Filtering
+    let queryObj = { ...req.query };
+    const excludeFields = ['page', 'sort', 'limit', 'fields'];
+    excludeFields.forEach(el => delete queryObj[el]);
+
+    // Role-based Access Control
+    if (req.user.role === 'citizen') queryObj.citizen = req.user.id;
+    if (req.user.role === 'collector') queryObj.collector = req.user.id;
+
+    let query = PickupRequest.find(queryObj);
+
+    // B. Sorting
+    if (req.query.sort) {
+      const sortBy = req.query.sort.split(',').join(' ');
+      query = query.sort(sortBy);
     } else {
-      query = PickupRequest.find({ citizen: req.user.id });
+      query = query.sort('-createdAt');
     }
 
-    const requests = await query.sort({ createdAt: -1 });
-    res.json(requests);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-// @desc    Assign collector to request (Admin Only)
-// @route   PUT /api/requests/:id/assign
-exports.assignCollector = async (req, res) => {
-  try {
-    const { collectorId } = req.body;
-    const request = await PickupRequest.findById(req.params.id);
-
-    if (!request) return res.status(404).json({ message: 'Request not found' });
-
-    request.collector = collectorId;
-    request.status = 'assigned';
-    await request.save();
-
-    res.json(request);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-// @desc    Update status (Collector & Admin)
-// @route   PUT /api/requests/:id/status
-exports.updateStatus = async (req, res) => {
-  try {
-    const { status } = req.body;
-    const request = await PickupRequest.findById(req.params.id);
-
-    if (!request) return res.status(404).json({ message: 'Request not found' });
-
-    request.status = status;
-    if (status === 'completed') request.completedAt = Date.now();
+    // C. Pagination
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 10;
+    const skip = (page - 1) * limit;
     
-    await request.save();
-    res.json(request);
+    query = query.skip(skip).limit(limit);
+
+    // D. Execution
+    const requests = await query.populate('citizen collector', 'name phone');
+    const total = await PickupRequest.countDocuments(queryObj);
+
+    res.json({
+      success: true,
+      count: requests.length,
+      pagination: {
+        total,
+        page,
+        pages: Math.ceil(total / limit)
+      },
+      data: requests
+    });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
+};
+
+// @desc    Update Status
+exports.updateStatus = async (req, res) => {
+    try {
+      const request = await PickupRequest.findByIdAndUpdate(
+        req.params.id, 
+        { status: req.body.status }, 
+        { new: true, runValidators: true }
+      );
+      if (!request) return res.status(404).json({ message: 'Request not found' });
+      res.json({ success: true, data: request });
+    } catch (error) {
+      res.status(500).json({ success: false, message: error.message });
+    }
 };

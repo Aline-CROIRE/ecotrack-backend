@@ -1,31 +1,25 @@
 const errorHandler = (err, req, res, next) => {
-  let error = { ...err };
-  error.message = err.message;
+  console.error(err.stack);
 
-  // Log to console for dev
-  console.error(err.stack.red);
+  let statusCode = res.statusCode === 200 ? 500 : res.statusCode;
+  let message = err.message;
 
-  // Mongoose bad ObjectId
+  // Mongoose Bad ID
   if (err.name === 'CastError') {
-    const message = `Resource not found`;
-    error = { message, statusCode: 404 };
+    message = 'Resource not found';
+    statusCode = 404;
   }
 
-  // Mongoose duplicate key
-  if (err.code === 11000) {
-    const message = 'Duplicate field value entered';
-    error = { message, statusCode: 400 };
-  }
-
-  // Mongoose validation error
+  // Mongoose Validation Error
   if (err.name === 'ValidationError') {
-    const message = Object.values(err.errors).map(val => val.message);
-    error = { message, statusCode: 400 };
+    message = Object.values(err.errors).map(val => val.message).join(', ');
+    statusCode = 400;
   }
 
-  res.status(error.statusCode || 500).json({
+  res.status(statusCode).json({
     success: false,
-    error: error.message || 'Server Error'
+    message: message,
+    stack: process.env.NODE_ENV === 'production' ? null : err.stack
   });
 };
 

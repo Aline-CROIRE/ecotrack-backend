@@ -1,39 +1,24 @@
 const express = require('express');
 const router = express.Router();
-const { 
-  createRequest, 
-  getRequests, 
-  assignCollector, 
-  updateStatus 
-} = require('../controllers/requestController');
+const { createRequest, getRequests, updateStatus } = require('../controllers/requestController');
 const { protect, authorize } = require('../middlewares/authMiddleware');
+const { requestValidator } = require('../middlewares/validators');
 
 /**
  * @swagger
  * /requests:
  *   post:
- *     summary: Create a new pickup request (Citizen)
+ *     summary: Create a request (Citizen)
  *     tags: [Requests]
  *     security: [{ bearerAuth: [] }]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               wasteType: { type: string, enum: [organic, plastic, paper, metal, electronic, other] }
- *               priority: { type: string, enum: [low, medium, high] }
- *               address: { type: string }
- *               scheduledDate: { type: string, format: date-time }
  */
-router.post('/', protect, authorize('citizen'), createRequest);
+router.post('/', protect, authorize('citizen'), requestValidator, createRequest);
 
 /**
  * @swagger
  * /requests:
  *   get:
- *     summary: Get requests based on user role
+ *     summary: Get all requests (Filtered by role)
  *     tags: [Requests]
  *     security: [{ bearerAuth: [] }]
  */
@@ -41,24 +26,9 @@ router.get('/', protect, getRequests);
 
 /**
  * @swagger
- * /requests/{id}/assign:
- *   put:
- *     summary: Assign a collector to a request (Admin)
- *     tags: [Requests]
- *     security: [{ bearerAuth: [] }]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema: { type: string }
- */
-router.put('/:id/assign', protect, authorize('admin'), assignCollector);
-
-/**
- * @swagger
  * /requests/{id}/status:
  *   put:
- *     summary: Update request status (Collector/Admin)
+ *     summary: Update status (Collector/Admin)
  *     tags: [Requests]
  *     security: [{ bearerAuth: [] }]
  */
