@@ -53,3 +53,26 @@ exports.getMe = async (req, res) => {
   const user = await User.findById(req.user.id);
   res.json(user);
 };
+
+// @desc    Get all users (Admin only)
+exports.getUsers = async (req, res) => {
+  try {
+    const users = await User.find();
+    res.json({ success: true, data: users });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+exports.updateProfile = async (req, res) => {
+  try {
+    const fieldsToUpdate = {
+      name: req.body.name,
+      phone: req.body.phone,
+      email: req.body.email
+    };
+    const user = await User.findByIdAndUpdate(req.user.id, fieldsToUpdate, { new: true, runValidators: true });
+    res.json({ success: true, data: user });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};

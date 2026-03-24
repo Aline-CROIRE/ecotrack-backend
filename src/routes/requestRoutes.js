@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { createRequest, getRequests, updateStatus, assignCollector } = require('../controllers/requestController');
+const { createRequest, getRequests, updateStatus,getRequest, assignCollector } = require('../controllers/requestController');
 const { protect, authorize } = require('../middlewares/authMiddleware');
 const { requestValidator } = require('../middlewares/validators');
 const upload = require('../config/cloudinary');
@@ -82,5 +82,16 @@ router.get('/', protect, getRequests);
  *               status: { type: string, enum: [in-progress, completed, cancelled] }
  */
 router.put('/:id/status', protect, authorize('collector', 'admin'), updateStatus);
+
+/**
+ * @swagger
+ * /requests/{id}/assign:
+ *   put:
+ *     summary: Manually assign a collector to a request (Admin only)
+ *     tags: [Requests]
+ *     security: [{ bearerAuth: [] }]
+ */
+router.put('/:id/assign', protect, authorize('admin'), assignCollector);
+router.get('/:id', protect, getRequest);
 
 module.exports = router;
