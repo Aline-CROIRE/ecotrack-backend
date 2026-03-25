@@ -1,51 +1,50 @@
 const PickupRequest = require('../models/PickupRequest');
+const User = require('../models/User');
+const Notification = require('../models/Notification');
 
-// @desc    Create Request
 exports.createRequest = async (req, res) => {
   try {
-    const { wasteType, priority, address, scheduledDate } = req.body;
+    const { wasteType, priority, address, scheduledDate, latitude, longitude } = req.body;
 
-    // SMART LOGIC: Find a collector with the least amount of active tasks
+    // 1. SMART ENGINE: Auto-Assignment
     const availableCollectors = await User.aggregate([
       { $match: { role: 'collector' } },
-      {
-        $lookup: {
-          from: 'pickuprequests',
-          localField: '_id',
-          foreignField: 'collector',
-          as: 'tasks'
-        }
-      },
-      {
-        $addFields: {
-          // Count only tasks that are NOT completed
-          activeTaskCount: {
-            $size: {
-              $filter: {
-                input: "$tasks",
-                as: "task",
-                cond: { $ne: ["$$task.status", "completed"] }
-              }
-            }
-          }
-        }
-      },
-      { $sort: { activeTaskCount: 1 } }, // Get collector with least tasks
+      { $lookup: { from: 'pickuprequests', localField: '_id', foreignField: 'collector', as: 'tasks' } },
+      { $addFields: { 
+          activeTaskCount: { 
+            $size: { $filter: { input: "$tasks", as: "t", cond: { $ne: ["$$t.status", "completed"] } } } 
+          } 
+      } },
+      { $sort: { activeTaskCount: 1 } },
       { $limit: 1 }
     ]);
 
-    const assignedCollectorId = availableCollectors.length > 0 ? availableCollectors[0]._id : null;
+    const collectorId = availableCollectors.length > 0 ? availableCollectors[0]._id : null;
 
+    // 2. CREATE REQUEST WITH GEOSPATIAL DATA
     const request = await PickupRequest.create({
       citizen: req.user.id,
       wasteType,
       priority,
-      location: { address },
+      location: {
+        address,
+        type: 'Point',
+        coordinates: [parseFloat(longitude), parseFloat(latitude)] // Longitude first for GeoJSON
+      },
       scheduledDate,
       imageUrl: req.file ? req.file.path : null,
-      collector: assignedCollectorId,
-      status: assignedCollectorId ? 'assigned' : 'pending'
+      collector: collectorId,
+      status: collectorId ? 'assigned' : 'pending'
     });
+
+    if (collectorId) {
+      await Notification.create({
+        recipient: collectorId,
+        title: "New Location Assigned",
+        message: `New pickup point at ${address}`,
+        type: 'assignment'
+      });
+    }
 
     res.status(201).json({ success: true, data: request });
   } catch (error) {
@@ -53,90 +52,35 @@ exports.createRequest = async (req, res) => {
   }
 };
 
-// @desc    Get All Requests with Advanced Querying (Pagination/Sorting/Filtering)
 exports.getRequests = async (req, res) => {
   try {
-    // 1. ADVANCED FILTERING
-    const queryObj = { ...req.query };
-    const excludeFields = ['page', 'sort', 'limit', 'fields'];
-    excludeFields.forEach(el => delete queryObj[el]);
+    let query = {};
+    if (req.user.role === 'citizen') query.citizen = req.user.id;
+    if (req.user.role === 'collector') query.collector = req.user.id;
 
-    // Role-based constraints (Citizens only see theirs, Collectors only see theirs)
-    if (req.user.role === 'citizen') queryObj.citizen = req.user.id;
-    if (req.user.role === 'collector') queryObj.collector = req.user.id;
+    const requests = await PickupRequest.find(query)
+      .populate('citizen collector', 'name phone')
+      .sort('-createdAt');
 
-    // Support for searching wasteType or status via query params
-    let query = PickupRequest.find(queryObj);
-
-    // 2. SORTING
-    // Example: ?sort=-createdAt (Newest first)
-    if (req.query.sort) {
-      const sortBy = req.query.sort.split(',').join(' ');
-      query = query.sort(sortBy);
-    } else {
-      query = query.sort('-createdAt');
-    }
-
-    // 3. PAGINATION
-    // Example: ?page=2&limit=5
-    const page = parseInt(req.query.page, 10) || 1;
-    const limit = parseInt(req.query.limit, 10) || 10;
-    const skip = (page - 1) * limit;
-
-    query = query.skip(skip).limit(limit);
-
-    // 4. EXECUTE
-    const requests = await query.populate('citizen collector', 'name phone');
-    const total = await PickupRequest.countDocuments(queryObj);
-
-    res.json({
-      success: true,
-      count: requests.length,
-      pagination: {
-        total,
-        page,
-        pages: Math.ceil(total / limit),
-      },
-      data: requests,
-    });
+    res.json({ success: true, data: requests });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
 
-// @desc    Update Status
-exports.updateStatus = async (req, res) => {
-    try {
-      const request = await PickupRequest.findByIdAndUpdate(
-        req.params.id, 
-        { status: req.body.status }, 
-        { new: true, runValidators: true }
-      );
-      if (!request) return res.status(404).json({ message: 'Request not found' });
-      res.json({ success: true, data: request });
-    } catch (error) {
-      res.status(500).json({ success: false, message: error.message });
-    }
-};
-
-// @desc    Manually assign/re-assign collector (Admin only)
-exports.assignCollector = async (req, res) => {
+exports.getRequest = async (req, res) => {
   try {
-    const { collectorId } = req.body;
-    const request = await PickupRequest.findByIdAndUpdate(
-      req.params.id,
-      { collector: collectorId, status: 'assigned' },
-      { new: true }
-    );
+    const request = await PickupRequest.findById(req.params.id).populate('citizen collector', 'name phone');
+    if (!request) return res.status(404).json({ message: "Not found" });
     res.json({ success: true, data: request });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-exports.getRequest = async (req, res) => {
+
+exports.updateStatus = async (req, res) => {
   try {
-    const request = await PickupRequest.findById(req.params.id).populate('citizen collector', 'name phone email');
-    if (!request) return res.status(404).json({ message: "Request not found" });
+    const request = await PickupRequest.findByIdAndUpdate(req.params.id, { status: req.body.status }, { new: true });
     res.json({ success: true, data: request });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
