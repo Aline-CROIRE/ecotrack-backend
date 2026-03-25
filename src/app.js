@@ -54,6 +54,7 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/ratings', ratingRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/notifications', require('./routes/notificationRoutes'));
+app.use('/api/messages', messageRoutes);
 
 // 8. ROOT ROUTE
 app.get('/', (req, res) => {
