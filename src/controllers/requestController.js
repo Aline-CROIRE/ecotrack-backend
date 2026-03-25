@@ -52,13 +52,16 @@ exports.getRequests = async (req, res) => {
     if (req.user.role === 'citizen') query.citizen = req.user.id;
     if (req.user.role === 'collector') query.collector = req.user.id;
 
-    const data = await PickupRequest.find(query).populate('citizen collector', 'name phone').sort('-createdAt');
+    // CRITICAL FIX: Added 'role' to the populate string below
+    const data = await PickupRequest.find(query)
+      .populate('citizen collector', 'name phone email role') 
+      .sort('-createdAt');
+
     res.json({ success: true, data });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
 exports.getRequest = async (req, res) => {
   try {
     const data = await PickupRequest.findById(req.params.id).populate('citizen collector', 'name phone');
