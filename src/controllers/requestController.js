@@ -6,22 +6,16 @@ exports.createRequest = async (req, res) => {
   try {
     const { wasteType, priority, address, scheduledDate, latitude, longitude } = req.body;
 
-    // 1. SMART ENGINE: Auto-Assignment
     const availableCollectors = await User.aggregate([
       { $match: { role: 'collector' } },
       { $lookup: { from: 'pickuprequests', localField: '_id', foreignField: 'collector', as: 'tasks' } },
-      { $addFields: { 
-          activeTaskCount: { 
-            $size: { $filter: { input: "$tasks", as: "t", cond: { $ne: ["$$t.status", "completed"] } } } 
-          } 
-      } },
+      { $addFields: { activeTaskCount: { $size: { $filter: { input: "$tasks", as: "t", cond: { $ne: ["$$t.status", "completed"] } } } } } },
       { $sort: { activeTaskCount: 1 } },
       { $limit: 1 }
     ]);
 
     const collectorId = availableCollectors.length > 0 ? availableCollectors[0]._id : null;
 
-    // 2. CREATE REQUEST WITH GEOSPATIAL DATA
     const request = await PickupRequest.create({
       citizen: req.user.id,
       wasteType,
@@ -29,7 +23,7 @@ exports.createRequest = async (req, res) => {
       location: {
         address,
         type: 'Point',
-        coordinates: [parseFloat(longitude), parseFloat(latitude)] // Longitude first for GeoJSON
+        coordinates: [parseFloat(longitude || 0), parseFloat(latitude || 0)]
       },
       scheduledDate,
       imageUrl: req.file ? req.file.path : null,
@@ -58,11 +52,8 @@ exports.getRequests = async (req, res) => {
     if (req.user.role === 'citizen') query.citizen = req.user.id;
     if (req.user.role === 'collector') query.collector = req.user.id;
 
-    const requests = await PickupRequest.find(query)
-      .populate('citizen collector', 'name phone')
-      .sort('-createdAt');
-
-    res.json({ success: true, data: requests });
+    const data = await PickupRequest.find(query).populate('citizen collector', 'name phone').sort('-createdAt');
+    res.json({ success: true, data });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -70,9 +61,9 @@ exports.getRequests = async (req, res) => {
 
 exports.getRequest = async (req, res) => {
   try {
-    const request = await PickupRequest.findById(req.params.id).populate('citizen collector', 'name phone');
-    if (!request) return res.status(404).json({ message: "Not found" });
-    res.json({ success: true, data: request });
+    const data = await PickupRequest.findById(req.params.id).populate('citizen collector', 'name phone');
+    if (!data) return res.status(404).json({ message: "Not found" });
+    res.json({ success: true, data });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -80,8 +71,17 @@ exports.getRequest = async (req, res) => {
 
 exports.updateStatus = async (req, res) => {
   try {
-    const request = await PickupRequest.findByIdAndUpdate(req.params.id, { status: req.body.status }, { new: true });
-    res.json({ success: true, data: request });
+    const data = await PickupRequest.findByIdAndUpdate(req.params.id, { status: req.body.status }, { new: true });
+    res.json({ success: true, data });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.assignCollector = async (req, res) => {
+  try {
+    const data = await PickupRequest.findByIdAndUpdate(req.params.id, { collector: req.body.collectorId, status: 'assigned' }, { new: true });
+    res.json({ success: true, data });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

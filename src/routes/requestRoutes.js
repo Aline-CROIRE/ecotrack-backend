@@ -1,22 +1,27 @@
 const express = require('express');
 const router = express.Router();
-const { createRequest, getRequests, updateStatus,getRequest, assignCollector } = require('../controllers/requestController');
+const { 
+  createRequest, 
+  getRequests, 
+  getRequest, 
+  updateStatus, 
+  assignCollector 
+} = require('../controllers/requestController');
 const { protect, authorize } = require('../middlewares/authMiddleware');
-const { requestValidator } = require('../middlewares/validators');
 const upload = require('../config/cloudinary');
 
 /**
  * @swagger
  * tags:
  *   name: Requests
- *   description: Waste pickup request management
+ *   description: Waste pickup management
  */
 
 /**
  * @swagger
  * /requests:
  *   post:
- *     summary: Create a new waste pickup (Citizen) - Triggers Auto-Assignment
+ *     summary: Create a pickup request
  *     tags: [Requests]
  *     security:
  *       - bearerAuth: []
@@ -27,59 +32,46 @@ const upload = require('../config/cloudinary');
  *           schema:
  *             type: object
  *             properties:
- *               wasteType: { type: string, enum: [organic, plastic, paper, metal, electronic, other] }
- *               priority: { type: string, enum: [low, medium, high] }
+ *               wasteType: { type: string }
+ *               priority: { type: string }
  *               address: { type: string }
- *               scheduledDate: { type: string, format: date-time }
- *               image: { type: string, format: binary, description: "Waste photo to upload" }
+ *               latitude: { type: string }
+ *               longitude: { type: string }
+ *               scheduledDate: { type: string }
+ *               image: { type: string, format: binary }
  */
-router.post('/', protect, authorize('citizen'), upload.single('image'), requestValidator, createRequest);
+router.post('/', protect, authorize('citizen'), upload.single('image'), createRequest);
 
 /**
  * @swagger
  * /requests:
  *   get:
- *     summary: Get requests with Pagination/Filtering (Citizen:Own, Collector:Assigned, Admin:All)
+ *     summary: List requests
  *     tags: [Requests]
  *     security:
  *       - bearerAuth: []
- *     parameters:
- *       - in: query
- *         name: page
- *         schema: { type: integer, default: 1 }
- *       - in: query
- *         name: limit
- *         schema: { type: integer, default: 10 }
- *       - in: query
- *         name: status
- *         schema: { type: string, enum: [pending, assigned, in-progress, completed] }
- *       - in: query
- *         name: sort
- *         description: "Example: -createdAt (newest) or createdAt (oldest)"
  */
 router.get('/', protect, getRequests);
 
 /**
  * @swagger
- * /requests/{id}/status:
- *   put:
- *     summary: Update request status (Collector or Admin)
+ * /requests/{id}:
+ *   get:
+ *     summary: Get single request
  *     tags: [Requests]
  *     security:
  *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema: { type: string }
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               status: { type: string, enum: [in-progress, completed, cancelled] }
+ */
+router.get('/:id', protect, getRequest);
+
+/**
+ * @swagger
+ * /requests/{id}/status:
+ *   put:
+ *     summary: Update status
+ *     tags: [Requests]
+ *     security:
+ *       - bearerAuth: []
  */
 router.put('/:id/status', protect, authorize('collector', 'admin'), updateStatus);
 
@@ -87,11 +79,11 @@ router.put('/:id/status', protect, authorize('collector', 'admin'), updateStatus
  * @swagger
  * /requests/{id}/assign:
  *   put:
- *     summary: Manually assign a collector to a request (Admin only)
+ *     summary: Admin manual assign
  *     tags: [Requests]
- *     security: [{ bearerAuth: [] }]
+ *     security:
+ *       - bearerAuth: []
  */
 router.put('/:id/assign', protect, authorize('admin'), assignCollector);
-router.get('/:id', protect, getRequest);
 
 module.exports = router;
