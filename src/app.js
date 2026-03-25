@@ -15,6 +15,7 @@ const reportRoutes = require('./routes/reportRoutes');
 const ratingRoutes = require('./routes/ratingRoutes');
 const analyticsRoutes = require('./routes/analyticsRoutes');
 const errorHandler = require('./middlewares/errorMiddleware');
+const messageRoutes=require('./routes/messageRoutes')
 
 const app = express();
 
