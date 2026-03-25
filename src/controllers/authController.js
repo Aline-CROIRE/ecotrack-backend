@@ -76,3 +76,11 @@ exports.updateProfile = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+exports.savePushToken = async (req, res) => {
+  try {
+    await User.findByIdAndUpdate(req.user.id, { pushToken: req.body.token });
+    res.json({ success: true, message: "Token registered" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};

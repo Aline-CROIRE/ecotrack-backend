@@ -77,5 +77,6 @@ router.get('/me', protect, getMe);
  */
 router.get('/users', protect, authorize('admin'), getUsers);
 router.put('/profile', protect, updateProfile);
+router.put('/push-token', protect, updateProfile);
 
 module.exports = router;

@@ -2,50 +2,25 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
 const userSchema = new mongoose.Schema({
-  name: {
-    type: String,
-    required: [true, 'Please add a name'],
-  },
-  email: {
-    type: String,
-    required: [true, 'Please add an email'],
-    unique: true,
-    match: [
-      /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/,
-      'Please add a valid email',
-    ],
-  },
-  password: {
-    type: String,
-    required: [true, 'Please add a password'],
-    minlength: 6,
-    select: false, // Don't return password by default in queries
-  },
-  role: {
-    type: String,
-    enum: ['citizen', 'collector', 'admin'],
-    default: 'citizen',
-  },
-  phone: {
-    type: String,
-    required: [true, 'Please add a phone number'],
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now,
-  },
+  name: { type: String, required: [true, 'Please add a name'] },
+  email: { type: String, required: [true, 'Please add an email'], unique: true },
+  password: { type: String, required: [true, 'Please add a password'], select: false },
+  role: { type: String, enum: ['citizen', 'collector', 'admin'], default: 'citizen' },
+  phone: { type: String, required: [true, 'Please add a phone number'] },
+  /**
+   * PUSH NOTIFICATION TOKEN
+   * Stores the unique device token for Expo Notifications
+   */
+  pushToken: { type: String, default: null },
+  createdAt: { type: Date, default: Date.now },
 });
 
-// Encrypt password using bcrypt before saving
 userSchema.pre('save', async function (next) {
-  if (!this.isModified('password')) {
-    next();
-  }
+  if (!this.isModified('password')) next();
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
 });
 
-// Method to match user entered password to hashed password in database
 userSchema.methods.matchPassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };
