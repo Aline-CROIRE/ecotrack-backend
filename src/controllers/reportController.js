@@ -14,7 +14,17 @@ exports.createReport = async (req, res) => {
 
 exports.getReports = async (req, res) => {
   try {
-    const reports = await Report.find().populate('citizen', 'name email');
+    let query = {};
+
+    // If NOT an admin, only show reports created by this user
+    if (req.user.role !== 'admin') {
+      query = { citizen: req.user.id };
+    }
+
+    const reports = await Report.find(query)
+      .populate('citizen', 'name email')
+      .sort('-createdAt');
+
     res.json({ success: true, data: reports });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
