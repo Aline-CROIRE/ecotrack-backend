@@ -40,6 +40,6 @@ router.post('/', protect, authorize('citizen'), createReport);
  *     security:
  *       - bearerAuth: []
  */
-router.get('/', protect, authorize('admin'), getReports);
+router.get('/', protect, authorize('admin', 'citizen', 'collector'), getReports);
 
 module.exports = router;
