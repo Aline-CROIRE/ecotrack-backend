@@ -31,19 +31,39 @@ exports.getMe = async (req, res) => {
   } catch (error) { res.status(500).json({ message: error.message }); }
 };
 
+/**
+ * UPGRADED: UPDATE PROFILE
+ * Handles text updates AND optional image uploads
+ */
+exports.updateProfile = async (req, res) => {
+  try {
+    const updateData = {
+      name: req.body.name,
+      email: req.body.email,
+      phone: req.body.phone
+    };
+
+    // If an image was provided in the request
+    if (req.file) {
+      updateData.avatarUrl = req.file.path; // This is the Cloudinary URL
+    }
+
+    const user = await User.findByIdAndUpdate(req.user.id, updateData, {
+      new: true,
+      runValidators: true
+    });
+
+    res.json({ success: true, data: user });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // @desc    Get all users (Admin only)
 exports.getUsers = async (req, res) => {
   try {
     const users = await User.find().select('-password');
     res.json({ success: true, data: users });
-  } catch (error) { res.status(500).json({ success: false, message: error.message }); }
-};
-
-// @desc    Update profile info
-exports.updateProfile = async (req, res) => {
-  try {
-    const user = await User.findByIdAndUpdate(req.user.id, req.body, { new: true, runValidators: true });
-    res.json({ success: true, data: user });
   } catch (error) { res.status(500).json({ success: false, message: error.message }); }
 };
 
@@ -61,7 +81,7 @@ exports.updateLiveLocation = async (req, res) => {
   } catch (error) { res.status(500).json({ success: false, message: error.message }); }
 };
 
-// @desc    Get all Admins for chat discovery
+// @desc    Get all Admins
 exports.getAdmins = async (req, res) => {
     try {
         const admins = await User.find({ role: 'admin' }).select('name role email phone');
