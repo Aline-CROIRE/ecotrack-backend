@@ -1,19 +1,14 @@
 const mongoose = require('mongoose');
 
 const notificationSchema = new mongoose.Schema({
-  recipient: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'User', 
-    required: true 
-  },
+  recipient: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   title: { type: String, required: true },
   message: { type: String, required: true },
   /**
-   * TYPE ENUM
-   * status_update: Request status changes
-   * assignment: New task for collectors
-   * report: Incident resolution alerts (NEW)
+   * RELATED ID: 
+   * Stores the ID of the Request or Report this alert belongs to.
    */
+  relatedId: { type: mongoose.Schema.Types.ObjectId, required: true },
   type: { 
     type: String, 
     enum: ['status_update', 'assignment', 'report'], 
