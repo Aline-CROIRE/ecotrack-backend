@@ -21,9 +21,7 @@ exports.sendMessage = async (req, res) => {
     });
 
     res.status(201).json({ success: true, data: message });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
+  } catch (error) { res.status(500).json({ success: false, message: error.message }); }
 };
 
 // @desc    Get conversation
@@ -50,9 +48,7 @@ exports.getChatRoom = async (req, res) => {
     );
 
     res.json({ success: true, data: messages });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
+  } catch (error) { res.status(500).json({ success: false, message: error.message }); }
 };
 
 // @desc    Get counts for Inbox
@@ -63,7 +59,5 @@ exports.getUnreadCounts = async (req, res) => {
             { $group: { _id: "$sender", count: { $sum: 1 } } }
         ]);
         res.json({ success: true, data: counts });
-    } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
-    }
+    } catch (error) { res.status(500).json({ success: false, message: error.message }); }
 };
