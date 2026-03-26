@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { createReport, getReports } = require('../controllers/reportController');
+const { createReport, getReports,updateReportStatus } = require('../controllers/reportController');
 const { protect, authorize } = require('../middlewares/authMiddleware');
 const upload = require('../config/cloudinary');
 
@@ -48,5 +48,5 @@ router.post('/', protect, authorize('citizen', 'collector', 'admin'), upload.sin
  *         description: Success
  */
 router.get('/', protect, authorize('admin', 'citizen', 'collector'), getReports);
-
+router.put('/:id/status', protect, authorize('admin'), updateReportStatus);
 module.exports = router;
