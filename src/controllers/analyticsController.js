@@ -2,7 +2,6 @@ const PickupRequest = require('../models/PickupRequest');
 const User = require('../models/User');
 const mongoose = require('mongoose');
 
-// @desc    Get Stats for Dashboards (User specific)
 exports.getStats = async (req, res) => {
   try {
     const userId = new mongoose.Types.ObjectId(req.user.id);
@@ -10,73 +9,58 @@ exports.getStats = async (req, res) => {
     if (req.user.role === 'citizen') matchStage = { citizen: userId };
     else if (req.user.role === 'collector') matchStage = { collector: userId };
 
-    const statusStats = await PickupRequest.aggregate([
-      { $match: matchStage },
-      { $group: { _id: "$status", count: { $sum: 1 } } }
-    ]);
-
+    // 1. Distribution by Type
     const wasteTypeStats = await PickupRequest.aggregate([
       { $match: matchStage },
       { $group: { _id: "$wasteType", count: { $sum: 1 } } }
     ]);
 
-    res.json({
-      statusStats,
-      wasteTypeStats,
-      summary: { total: statusStats.reduce((acc, curr) => acc + curr.count, 0) }
-    });
-  } catch (error) { res.status(500).json({ message: error.message }); }
-};
-
-/**
- * NEW: ADMIN GOD-MODE OVERVIEW
- * Calculates City Heatmap points and Collector Efficiency
- */
-exports.getAdminOverview = async (req, res) => {
-  try {
-    // 1. SYSTEM TOTALS
-    const totalUsers = await User.countDocuments();
-    const totalRequests = await PickupRequest.countDocuments();
-    
-    // 2. CITY HEATMAP DATA
-    // Returns latitude/longitude of all non-completed requests
-    const heatmapData = await PickupRequest.find(
-      { status: { $ne: 'completed' } },
-      'location.coordinates wasteType priority'
-    );
-
-    // 3. COLLECTOR EFFICIENCY RANKING
-    // Joins users with their completed tasks to calculate performance
-    const collectorRankings = await User.aggregate([
-      { $match: { role: 'collector' } },
+    // 2. MONTHLY TREND LOGIC (Last 6 Months)
+    const monthlyTrend = await PickupRequest.aggregate([
+      { $match: matchStage },
       {
-        $lookup: {
-          from: 'pickuprequests',
-          localField: '_id',
-          foreignField: 'collector',
-          as: 'tasks'
+        $group: {
+          _id: { month: { $month: "$createdAt" }, year: { $year: "$createdAt" } },
+          count: { $sum: 1 }
         }
       },
-      {
-        $project: {
-          name: 1,
-          email: 1,
-          completedCount: {
-            $size: { $filter: { input: "$tasks", as: "t", cond: { $eq: ["$$t.status", "completed"] } } }
-          },
-          pendingCount: {
-            $size: { $filter: { input: "$tasks", as: "t", cond: { $ne: ["$$t.status", "completed"] } } }
-          }
-        }
-      },
-      { $sort: { completedCount: -1 } }
+      { $sort: { "_id.year": -1, "_id.month": -1 } },
+      { $limit: 6 }
     ]);
 
     res.json({
       success: true,
-      totals: { users: totalUsers, requests: totalRequests },
-      heatmap: heatmapData,
-      rankings: collectorRankings
+      wasteTypeStats,
+      monthlyTrend: monthlyTrend.reverse(), // Show chronologically
+      summary: { total: wasteTypeStats.reduce((acc, curr) => acc + curr.count, 0) }
     });
+  } catch (error) { res.status(500).json({ message: error.message }); }
+};
+
+exports.getAdminOverview = async (req, res) => {
+  try {
+    const totalUsers = await User.countDocuments();
+    const totalRequests = await PickupRequest.countDocuments();
+    const heatmap = await PickupRequest.find({ status: { $ne: 'completed' } }, 'location.coordinates priority');
+
+    // 3. CITY-WIDE MONTHLY TREND
+    const cityTrend = await PickupRequest.aggregate([
+      {
+        $group: {
+          _id: { month: { $month: "$createdAt" } },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { "_id.month": 1 } }
+    ]);
+
+    const rankings = await User.aggregate([
+      { $match: { role: 'collector' } },
+      { $lookup: { from: 'pickuprequests', localField: '_id', foreignField: 'collector', as: 'tasks' } },
+      { $project: { name: 1, completedCount: { $size: { $filter: { input: "$tasks", as: "t", cond: { $eq: ["$$t.status", "completed"] } } } }, pendingCount: { $size: { $filter: { input: "$tasks", as: "t", cond: { $ne: ["$$t.status", "completed"] } } } } } },
+      { $sort: { completedCount: -1 } }
+    ]);
+
+    res.json({ success: true, totals: { users: totalUsers, requests: totalRequests }, heatmap, rankings, cityTrend });
   } catch (error) { res.status(500).json({ message: error.message }); }
 };
