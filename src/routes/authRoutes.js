@@ -32,4 +32,6 @@ router.put('/profile', protect, upload.single('image'), updateProfile);
 // Real-time Logistics
 router.put('/location', protect, updateLiveLocation);
 
+router.get('/admins', protect, getAdmins)
+
 module.exports = router;
